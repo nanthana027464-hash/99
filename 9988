@@ -1,0 +1,126 @@
+-- โหลด Rayfield UI Library
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- สร้างหน้าต่างหลักของ UI
+local Window = Rayfield:CreateWindow({
+   Name = "Combat & Utility Menu",
+   LoadingTitle = "กำลังโหลดระบบ...",
+   LoadingSubtitle = "by AI Assistant",
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = nil,
+      FileName = "CombatHub"
+   },
+   Discord = {
+      Enabled = false,
+      Invite = "noinvite",
+      RememberJoins = true
+   },
+   KeySystem = false, -- ไม่ต้องใส่คีย์
+})
+
+-- สร้างแท็บเมนู
+local CombatTab = Window:CreateTab("ระบบต่อสู้ (Combat)", 4483362458)
+
+-- ตัวแปรระบบ
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local aimLockEnabled = false
+local hitboxEnabled = false
+local hitboxSize = 5 -- ขนาดเริ่มต้นของฮิตบ็อก
+
+-- ==========================================
+-- ฟังชั่นที่ 1: ล็อกเป้า (Aim Lock)
+-- ==========================================
+CombatTab:CreateToggle({
+   Name = "1. ล็อกเป้าผู้เล่นใกล้เคียง (Aim Lock)",
+   CurrentValue = false,
+   Flag = "AimLockToggle",
+   Callback = function(Value)
+      aimLockEnabled = Value
+   end,
+})
+
+-- ==========================================
+-- ฟังชั่นที่ 2: ฮิตบ็อก + บอกระยะ (Hitbox Expander)
+-- ==========================================
+CombatTab:CreateToggle({
+   Name = "2. ขยายฮิตบ็อก (Hitbox Expander)",
+   CurrentValue = false,
+   Flag = "HitboxToggle",
+   Callback = function(Value)
+      hitboxEnabled = Value
+      for _, player in ipairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = player.Character.HumanoidRootPart
+            if hitboxEnabled then
+               rootPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+               rootPart.Transparency = 0.7
+               rootPart.CanCollide = false
+            else
+               rootPart.Size = Vector3.new(2, 2, 1) -- คืนค่าเดิม
+               rootPart.Transparency = 1
+               rootPart.CanCollide = false
+            end
+         end
+      end
+   end,
+})
+
+CombatTab:CreateSlider({
+   Name = "ปรับขนาดฮิตบ็อก (Hitbox Size)",
+   Range = {2, 20},
+   Increment = 1,
+   Suffix = " Studs",
+   CurrentValue = 5,
+   Flag = "HitboxSizeSlider",
+   Callback = function(Value)
+      hitboxSize = Value
+      if hitboxEnabled then
+         for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+               player.Character.HumanoidRootPart.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+            end
+         end
+      end
+   end,
+})
+
+-- ลูปการทำงานแบบเรียลไทม์ (สำหรับล็อกเป้าและคำนวณระยะ)
+RunService.RenderStepped:Connect(function()
+   -- ระบบล็อกเป้า
+   if aimLockEnabled then
+      local closestPlayer = nil
+      local shortestDistance = math.huge
+      
+      for _, player in ipairs(Players:GetPlayers()) do
+         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local head = player.Character.Head
+            local screenPoint, onScreen = Camera:WorldToScreenPoint(head.Position)
+            if onScreen then
+               local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+               local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - mousePos).Magnitude
+               if distance < shortestDistance then
+                  shortestDistance = distance
+                  closestPlayer = player
+               end
+            end
+         end
+      end
+      
+      if closestPlayer and closestPlayer.Character and closestPlayer.Character:FindFirstChild("Head") then
+         Camera.CFrame = CFrame.new(Camera.CFrame.Position, closestPlayer.Character.Head.Position)
+      end
+   end
+end)
+
+-- แจ้งเตือนเมื่อสคริปต์โหลดเสร็จ
+Rayfield:Notify({
+   Title = "โหลดสำเร็จ!",
+   Content = "ระบบ Rayfield UI พร้อมใช้งานแล้ว",
+   Duration = 5,
+   Image = 4483362458,
+})
